@@ -50,9 +50,9 @@ def pa(x,y):
     if y <= 0.0:
         posang=np.arccos(x/r)
     elif x < 0.0 and y > 0.0:
-        posang=np.arctan(y/x)+np.pi
+        posang=np.arctan(-y/x)+np.pi
     elif x >= 0.0 and y > 0.0:
-        posang=np.arcsin(y/r)+2.0*np.pi
+        posang=np.arcsin(-y/r)+2.0*np.pi
     return posang
 
 #Now for the orbit prediction code!
@@ -107,9 +107,9 @@ def obliquity(jd):
 #Ecliptic Longitude of the sun for a given JD
 def lambdasun(jd):
     d=jd-2451545.0
-    g=357.528+0.9856003*d
+    g=357.528+0.9856003*d*degtorad
     l=280.46+0.9856474*d
-    lamb_deg=l+1.915*np.sin(g)+.020*np.sin(2*g)
+    lamb_deg=l+1.915*np.sin(g)+0.020*np.sin(2*g)
     lamb_rad=lamb_deg*degtorad
     return lamb_rad
 
@@ -143,7 +143,7 @@ beta2000_rad=eclip_position['beta']
 #Ecliptic longitude of the Sun for J2000 was then...
 ecsunlam2000=lambdasun(2451545.0)
 
-del_lam2000=5.63*np.sin(ecsunlam2000-lam2000_rad)*mastodeg*degtorad
+del_lam2000=5.63*np.sin(ecsunlam2000-lam2000_rad)*mastodeg*degtorad/np.cos(beta2000_rad)
 del_beta2000=5.63*np.cos(ecsunlam2000-lam2000_rad)*np.sin(beta2000_rad)*mastodeg*degtorad
 
 new_equat_position=ecliptoequat(lam2000_rad+del_lam2000,beta2000_rad+del_beta2000,ob2000)
@@ -190,54 +190,303 @@ for i0 in range(len(fall)):
 
 rvmax=np.argmax(rv)
 rvmin=np.argmin(rv)
-print hjd[rvmin],hjd[rvmax]#2457320.8061 2457322.4831; Oct 25 and 27
+#print hjd[rvmin],hjd[rvmax]#2457320.8061 2457322.4831; Oct 25 and 27
+
+#2457320.8061 2457322.4831
+#2457327.5971 2457328.0931 - 1st and 4th contact
 
 rpro_tran=1.007*rsun+0.981*rjup
 
 transit=np.where((np.abs(rpro) < rpro_tran) & (zstar > 0.0))
 firstcontact=min(hjd[transit])
 fourthcontact=max(hjd[transit])
-print firstcontact,fourthcontact#Nov 1 02:19:36 UTC Nov 1 14:13:46 UTC
+#print firstcontact,fourthcontact#Nov 1 02:19:36 UTC Nov 1 14:13:46 UTC
 #Oct 31 20/1?:19:36 CST Nov 1 08:13:46 CST
 #After full moon; Sun sets at 18:18; Sun rises at 07:02 - HD 80606 airmass < 2 around 3am :(
 
-#plt.plot(hjd-2.4572e6,rv)
-#plt.plot(hjd[transit]-2.4572e6,rv[transit],'r')
-#plt.xlim((2457235-2.4572e6,2457389-2.4572e6))
-#plt.xlabel('HJD-2457200')
-#plt.ylabel('Radial Velocity (m/s)')
-#plt.title('HD 80606 Radial Velocity Curve')
+plt.figure(0)
+plt.plot(hjd-2.4572e6,rv)
+plt.plot(hjd[transit]-2.4572e6,rv[transit],'r')
+plt.xlim((2457235-2.4572e6,2457389-2.4572e6))
+plt.xlabel('HJD-2457200')
+plt.ylabel('Radial Velocity (m/s)')
+plt.title('HD 80606 Radial Velocity Curve')
 #plt.savefig("/Users/ram/Dropbox/ut/2015fa/ast381/hw1/rv.eps")
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/rv.eps")
 
 #PM=(45.76, 16.56) mas/yr
-#PLX=5.63 mas
+#PLX=5.63 mas OR 17.13 from Hipparcos 1997 that people still cite...
 #Jan 1, 2014 to Jan 1, 2019 (2456658.5,2458484.5)
 
 gaia=np.arange(0,182600,dtype=float)/100.0
-#Planets influence on the star
-ra_p=np.zeros(len(gaia))
-dec_p=np.zeros(len(gaia))
+#Planet's influence on the star!
+ra_p2=np.zeros(len(gaia))
+dec_p2=np.zeros(len(gaia))
+ra_p1=np.zeros(len(gaia))
+dec_p1=np.zeros(len(gaia))
+plx1=5.63
+plx2=17.13
 for i1 in range(len(gaia)):
     temp=orb_pred(a,ecc,i,om1,w,t0,gaia[i1]+2456658.5,p,m1,m2)
-    del_dec=temp['s_proj_sep']*np.cos(temp['s_pacom'])*5.63e-3/(pctom*degtorad)
-    del_ra=temp['s_proj_sep']*np.sin(temp['s_pacom'])*5.63e-3/(pctom*degtorad)
-    ra_p[i1]=del_ra
-    dec_p[i1]=del_dec
+    del_dec1=temp['s_proj_sep']*np.cos(temp['s_pacom'])*plx1*1e-3/(pctom*degtorad)
+    del_ra1=temp['s_proj_sep']*np.sin(temp['s_pacom'])*plx1*1e-3/(pctom*degtorad)
+    del_dec2=temp['s_proj_sep']*np.cos(temp['s_pacom'])*plx2*1e-3/(pctom*degtorad)
+    del_ra2=temp['s_proj_sep']*np.sin(temp['s_pacom'])*plx2*1e-3/(pctom*degtorad)
+    ra_p1[i1]=del_ra1*3.6e9
+    dec_p1[i1]=del_dec1*3.6e9
+    ra_p2[i1]=del_ra2*3.6e9
+    dec_p2[i1]=del_dec2*3.6e9
 
-#plt.plot(dec_p,ra_p)
-#plt.show()
+#Add parallax! Going to assume RA, Dec of HD 80606 is stationary at its J2000 position for simplicity...
+ra_plx1=np.zeros(len(gaia))
+dec_plx1=np.zeros(len(gaia))
+ra_plx2=np.zeros(len(gaia))
+dec_plx2=np.zeros(len(gaia))
+for i2 in range(len(gaia)):
+    ob=obliquity(gaia[i2]+2456658.5)
+    lamsun=lambdasun(gaia[i2]+2456658.5)
+    eclip_position=equattoeclip(ra2000_rad,dec2000_rad,ob)
+    lam_rad=eclip_position['lambda']
+    beta_rad=eclip_position['beta']
+    del_lam1=plx1*np.sin(lamsun-lam_rad)*mastodeg*degtorad/np.cos(beta_rad)
+    del_beta1=plx1*np.cos(lamsun-lam_rad)*np.sin(beta_rad)*mastodeg*degtorad
+    del_lam2=plx2*np.sin(lamsun-lam_rad)*mastodeg*degtorad/np.cos(beta_rad)
+    del_beta2=plx2*np.cos(lamsun-lam_rad)*np.sin(beta_rad)*mastodeg*degtorad
+    new_equat_position1=ecliptoequat(lam_rad+del_lam1,beta_rad+del_beta1,ob)
+    new_equat_position2=ecliptoequat(lam_rad+del_lam2,beta_rad+del_beta2,ob)
+    ra_plx1[i2]=(new_equat_position1['ra']/degtorad-ra2000_deg)*1e3/mastodeg+ra_p1[i2]
+    dec_plx1[i2]=(new_equat_position1['dec']/degtorad-dec2000_deg)*1e3/mastodeg+dec_p1[i2]
+    ra_plx2[i2]=(new_equat_position2['ra']/degtorad-ra2000_deg)*1e3/mastodeg+ra_p2[i2]
+    dec_plx2[i2]=(new_equat_position2['dec']/degtorad-dec2000_deg)*1e3/mastodeg+dec_p2[i2]
 
-ra_pm=np.zeros(len(gaia))
-dec_pm=np.zeros(len(gaia))
-ra_plx=np.zeros(len(gaia))
-dec_plx=np.zeros(len(gaia))
-for i1 in range(len(gaia)):
-    ra_pm[i1]=ra2000_deg+(gaia[i1]+2456658.5-2451545.0)*45.78*mastodeg/365.25
-    dec_pm[i1]=dec2000_deg+(gaia[i1]+2456658.5-2451545.0)*16.56*mastodeg/365.25
+#Now add proper motion!
+ra_pm1=np.zeros(len(gaia))
+dec_pm1=np.zeros(len(gaia))
+ra_pm2=np.zeros(len(gaia))
+dec_pm2=np.zeros(len(gaia))
+for i3 in range(len(gaia)):
+    ra_pm1[i3]=(gaia[i3]+2456658.5-2451545.0)*45.78*1e3/365.25+ra_plx1[i3]
+    dec_pm1[i3]=(gaia[i3]+2456658.5-2451545.0)*16.56*1e3/365.25+dec_plx1[i3]
+    ra_pm2[i3]=(gaia[i3]+2456658.5-2451545.0)*45.78*1e3/365.25+ra_plx2[i3]
+    dec_pm2[i3]=(gaia[i3]+2456658.5-2451545.0)*16.56*1e3/365.25+dec_plx2[i3]
 
-#plt.plot(dec_pm-dec2000_deg,ra_pm-ra2000_deg)
-#plt.xlim(max(dec_pm)-dec2000_deg,min(dec_pm)-dec2000_deg)
-#plt.ylim(max(ra_pm)-ra2000_deg,min(ra_pm)-ra2000_deg)
-#plt.show()
+#Time to fake some data!
+N=100
+g_sim=np.sort(1826.0*np.random.rand(N)+2456658.5)
+ra_p_sim1=np.zeros(len(g_sim))
+dec_p_sim1=np.zeros(len(g_sim))
+ra_plx_sim1=np.zeros(len(g_sim))
+dec_plx_sim1=np.zeros(len(g_sim))
+ra_pm_sim1=np.zeros(len(g_sim))
+dec_pm_sim1=np.zeros(len(g_sim))
+ra_p_sim2=np.zeros(len(g_sim))
+dec_p_sim2=np.zeros(len(g_sim))
+ra_plx_sim2=np.zeros(len(g_sim))
+dec_plx_sim2=np.zeros(len(g_sim))
+ra_pm_sim2=np.zeros(len(g_sim))
+dec_pm_sim2=np.zeros(len(g_sim))
+#Error arrays
+ra_p_simerr=3.0+0.5*np.random.rand(N)
+dec_p_simerr=3.0+0.5*np.random.rand(N)
+for i4 in range(len(g_sim)):
+    t_sim=orb_pred(a,ecc,i,om1,w,t0,g_sim[i4],p,m1,m2)
+    del_dec1=t_sim['s_proj_sep']*np.cos(t_sim['s_pacom'])*plx1*1e-3/(pctom*degtorad)
+    del_ra1=t_sim['s_proj_sep']*np.sin(t_sim['s_pacom'])*plx1*1e-3/(pctom*degtorad)
+    del_dec2=t_sim['s_proj_sep']*np.cos(t_sim['s_pacom'])*plx2*1e-3/(pctom*degtorad)
+    del_ra2=t_sim['s_proj_sep']*np.sin(t_sim['s_pacom'])*plx2*1e-3/(pctom*degtorad)
+    ra_p_sim_temp1=del_ra1*3.6e9
+    dec_p_sim_temp1=del_dec1*3.6e9
+    ra_p_sim1[i4]=ra_p_sim_temp1+0.2*np.random.randn()
+    dec_p_sim1[i4]=dec_p_sim_temp1+0.2*np.random.randn()
+    ra_p_sim_temp2=del_ra2*3.6e9
+    dec_p_sim_temp2=del_dec2*3.6e9
+    ra_p_sim2[i4]=ra_p_sim_temp2+0.2*np.random.randn()
+    dec_p_sim2[i4]=dec_p_sim_temp2+0.2*np.random.randn()
+    ob=obliquity(g_sim[i4])
+    lamsun=lambdasun(g_sim[i4])
+    eclip_position=equattoeclip(ra2000_rad,dec2000_rad,ob)
+    lam_rad=eclip_position['lambda']
+    beta_rad=eclip_position['beta']
+    del_lam1=plx1*np.sin(lamsun-lam_rad)*mastodeg*degtorad/np.cos(beta_rad)
+    del_beta1=plx1*np.cos(lamsun-lam_rad)*np.sin(beta_rad)*mastodeg*degtorad
+    del_lam2=plx2*np.sin(lamsun-lam_rad)*mastodeg*degtorad/np.cos(beta_rad)
+    del_beta2=plx2*np.cos(lamsun-lam_rad)*np.sin(beta_rad)*mastodeg*degtorad
+    new_equat_position1=ecliptoequat(lam_rad+del_lam1,beta_rad+del_beta1,ob)
+    new_equat_position2=ecliptoequat(lam_rad+del_lam2,beta_rad+del_beta2,ob)
+    ra_plx_sim1[i4]=(new_equat_position1['ra']/degtorad-ra2000_deg)*1e3/mastodeg+ra_p_sim1[i4]
+    dec_plx_sim1[i4]=(new_equat_position1['dec']/degtorad-dec2000_deg)*1e3/mastodeg+dec_p_sim1[i4]
+    ra_pm_sim1[i4]=(g_sim[i4]-2451545.0)*45.78*1e3/365.25+ra_plx_sim1[i4]
+    dec_pm_sim1[i4]=(g_sim[i4]-2451545.0)*16.56*1e3/365.25+dec_plx_sim1[i4]
+    ra_plx_sim2[i4]=(new_equat_position2['ra']/degtorad-ra2000_deg)*1e3/mastodeg+ra_p_sim2[i4]
+    dec_plx_sim2[i4]=(new_equat_position2['dec']/degtorad-dec2000_deg)*1e3/mastodeg+dec_p_sim2[i4]
+    ra_pm_sim2[i4]=(g_sim[i4]-2451545.0)*45.78*1e3/365.25+ra_plx_sim2[i4]
+    dec_pm_sim2[i4]=(g_sim[i4]-2451545.0)*16.56*1e3/365.25+dec_plx_sim2[i4]
 
-    
+plt.figure(1)
+plt.errorbar(ra_p_sim1,dec_p_sim1,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_p1,dec_p1)
+plt.xlim(max(ra_p1)+0.5,min(ra_p1)-0.5)
+plt.ylim(min(dec_p1)-1.0,max(dec_p1)+1.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra1_plx1.eps")
+
+plt.figure(2)
+plt.errorbar(g_sim-2456658.5,ra_p_sim1,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_p1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_p1)-0.5,max(ra_p1)+0.5)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t1_plx1.eps")
+
+plt.figure(3)
+plt.errorbar(g_sim-2456658.5,dec_p_sim1,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_p1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_p1)-1.0,max(dec_p1)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t1_plx1.eps")
+
+plt.figure(4)
+plt.errorbar(ra_plx_sim1,dec_plx_sim1,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_plx1,dec_plx1)
+plt.xlim(max(ra_plx1)+500.0,min(ra_plx1)-500.0)
+plt.ylim(min(dec_plx1)-500.0,max(dec_plx1)+500.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra2_plx1.eps")
+
+plt.figure(5)
+plt.errorbar(g_sim-2456658.5,ra_plx_sim1,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_plx1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_plx1)-500.0,max(ra_plx1)+500.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t2_plx1.eps")
+
+plt.figure(6)
+plt.errorbar(g_sim-2456658.5,dec_plx_sim1,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_plx1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_plx1)-500.0,max(dec_plx1)+500.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t2_plx1.eps")
+
+plt.figure(7)
+plt.errorbar(ra_pm_sim1,dec_pm_sim1,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_pm1,dec_pm1)
+plt.xlim(max(ra_pm1)+1.0,min(ra_pm1)-1.0)
+plt.ylim(min(dec_pm1)-1.0,max(dec_pm1)+1.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra3_plx1.eps")
+
+plt.figure(8)
+plt.errorbar(g_sim-2456658.5,ra_pm_sim1,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_pm1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_pm1)-1.0,max(ra_pm1)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t3_plx1.eps")
+
+plt.figure(9)
+plt.errorbar(g_sim-2456658.5,dec_pm_sim1,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_pm1)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_pm1)-1.0,max(dec_pm1)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t3_plx1.eps")
+
+#PLX2 Plots
+plt.figure(10)
+plt.errorbar(ra_p_sim2,dec_p_sim2,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_p2,dec_p2)
+plt.xlim(max(ra_p2)+0.5,min(ra_p2)-0.5)
+plt.ylim(min(dec_p2)-1.0,max(dec_p2)+1.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra1_plx2.eps")
+
+plt.figure(11)
+plt.errorbar(g_sim-2456658.5,ra_p_sim2,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_p2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_p2)-0.5,max(ra_p2)+0.5)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t1_plx2.eps")
+
+plt.figure(12)
+plt.errorbar(g_sim-2456658.5,dec_p_sim2,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_p2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_p2)-1.0,max(dec_p2)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t1_plx2.eps")
+
+plt.figure(13)
+plt.errorbar(ra_plx_sim2,dec_plx_sim2,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_plx2,dec_plx2)
+plt.xlim(max(ra_plx2)+500.0,min(ra_plx2)-500.0)
+plt.ylim(min(dec_plx2)-500.0,max(dec_plx2)+500.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra2_plx2.eps")
+
+plt.figure(14)
+plt.errorbar(g_sim-2456658.5,ra_plx_sim2,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_plx2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_plx2)-500.0,max(ra_plx2)+500.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t2_plx2.eps")
+
+plt.figure(15)
+plt.errorbar(g_sim-2456658.5,dec_plx_sim2,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_plx2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_plx2)-500.0,max(dec_plx2)+500.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t2_plx2.eps")
+
+plt.figure(16)
+plt.errorbar(ra_pm_sim2,dec_pm_sim2,xerr=ra_p_simerr,yerr=dec_p_simerr,fmt='o')
+plt.plot(ra_pm2,dec_pm2)
+plt.xlim(max(ra_pm2)+1.0,min(ra_pm2)-1.0)
+plt.ylim(min(dec_pm2)-1.0,max(dec_pm2)+1.0)
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.title('RA versus Dec')
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_ra3_plx2.eps")
+
+plt.figure(17)
+plt.errorbar(g_sim-2456658.5,ra_pm_sim2,yerr=ra_p_simerr,fmt='o')
+plt.plot(gaia,ra_pm2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'RA - '+str(ra2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(ra_pm2)-1.0,max(ra_pm2)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/ra_v_t3_plx2.eps")
+
+plt.figure(18)
+plt.errorbar(g_sim-2456658.5,dec_pm_sim2,yerr=dec_p_simerr,fmt='o')
+plt.plot(gaia,dec_pm2)
+plt.xlabel('JD-2458484.5')
+plt.ylabel(r'Dec - '+str(dec2000_deg)+' ($\mu$as)')
+plt.xlim(0.0,1826.0)
+plt.ylim(min(dec_pm2)-1.0,max(dec_pm2)+1.0)
+plt.savefig("/Users/rmartinez/Dropbox/ut/2015fa/ast381/hw1/dec_v_t3_plx2.eps")
